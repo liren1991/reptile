@@ -12,8 +12,6 @@ import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.errors.GitAPIException;
-import org.eclipse.jgit.api.errors.InvalidRemoteException;
-import org.eclipse.jgit.api.errors.TransportException;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
@@ -23,10 +21,10 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
-import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.io.File;
@@ -43,6 +41,9 @@ public class ReptileTaskController {
     private static final Logger logger = LoggerFactory.getLogger(ReptileTaskController.class);
     private static volatile Boolean isStop;
     private static final int java = 1;
+    private static volatile Boolean stopClone = false;
+    private static volatile Boolean isStartClone = false;
+
     @Autowired
     private ReptileLogMapper reptileLogMapper;
     @Autowired
@@ -59,44 +60,59 @@ public class ReptileTaskController {
     }
 
     @RequestMapping("/stopReptileGitHub.html")
-    public void stopReptileGitHub() {
+    public Object stopReptileGitHub() {
         isStop = true;
+        return RequestUtil.succ();
     }
 
     @RequestMapping("/startClone.html")
-    public void startClone(String url) {
-
+    public Object startClone(@RequestParam(value = "cloneNum" , required = false,defaultValue = "100")Integer cloneNum) {
         List<ReptileLog> reptileLogList = reptileLogMapper.listReptileLogTask(未处理);
         StringBuilder builder = new StringBuilder();
-        new Thread(() -> {
-            int count = 0;
-            for (ReptileLog reptileLog : reptileLogList) {
-                if (count > 200)
-                    break;
-                File localPath = new File("/root/data/gitProject" + reptileLog.getProjectName());
-                try (Git result = Git.cloneRepository()
-                        .setURI(reptileLog.getGitUrl())
-                        .setDirectory(localPath)
-                        .call()) {
-                    logger.info("git clone 成功:  " + reptileLog.getGitUrl());
-                    reptileLog.setStatus(已下载);
-                    builder.append(reptileLog.getGitUrl() + "\n");
-                    reptileLogMapper.updateReptileLogByPrimaryId(reptileLog);
-                } catch (GitAPIException e) {
-                    e.printStackTrace();
-                    logger.info("git clone 失败:  " + reptileLog.getGitUrl());
+        if (isStartClone)
+            return RequestUtil.error("git clone 任务已启动 , 请等待本任务结束后启动!");
+        try {
+            isStartClone = true;
+            new Thread(() -> {
+                int count = 0;
+                for (ReptileLog reptileLog : reptileLogList) {
+                    if (stopClone) break;
+                    if (count >= cloneNum) break;
+
+//                    File localPath = new File("/usr/data/gitProject" + reptileLog.getProjectName());
+                    File localPath = new File("D:\\gitProject" + reptileLog.getProjectName());
+                    try (Git result = Git.cloneRepository()
+                            .setURI(reptileLog.getGitUrl())
+                            .setDirectory(localPath)
+                            .call()) {
+                        logger.info("git clone 成功:  " + reptileLog.getGitUrl());
+                        reptileLog.setStatus(已下载);
+                        builder.append(reptileLog.getGitUrl() + "\n");
+                        reptileLogMapper.updateReptileLogByPrimaryId(reptileLog);
+                    } catch (GitAPIException e) {
+                        e.printStackTrace();
+                        logger.info("git clone 失败:  " + reptileLog.getGitUrl());
+                    }
+                    count++;
                 }
-                count++;
-            }
-            SimpleMailMessage message = new SimpleMailMessage();
-            message.setFrom("liren@weyao.com");
-            message.setTo("liren@weyao.com");
-            message.setSubject("gitHub clone 结束");
-            message.setText(builder.toString());
-            javaMailSender.send(message);
-        }).start();
+                SimpleMailMessage message = new SimpleMailMessage();
+                message.setFrom("liren@weyao.com");
+                message.setTo("liren@weyao.com");
+                message.setSubject("gitHub clone 结束");
+                message.setText(builder.toString());
+                javaMailSender.send(message);
+            }).start();
+        }finally {
+            isStartClone = false;
+        }
+        return RequestUtil.succ();
     }
 
+    @RequestMapping("/stopClone.html")
+    public Object stopClone() {
+        stopClone = true;
+        return RequestUtil.succ();
+    }
     private static final class ReptileThread implements Runnable {
         private ReptileParam param;
         private ReptileLogMapper mapper;

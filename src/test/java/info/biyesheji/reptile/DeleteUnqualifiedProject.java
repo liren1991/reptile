@@ -4,7 +4,14 @@ package info.biyesheji.reptile;
 import org.junit.Test;
 
 import java.io.*;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.sql.*;
+
+import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 
 public class DeleteUnqualifiedProject {
 
@@ -28,7 +35,7 @@ public class DeleteUnqualifiedProject {
     }
 
     @Test
-    public void test1() throws IOException {
+    public void test1() throws IOException, URISyntaxException {
         File gitProject = new File("D:\\gitTest");
         File[] files = gitProject.listFiles();
         for (File file : files) {
@@ -36,47 +43,65 @@ public class DeleteUnqualifiedProject {
             boolean isDelete = true;
             for (File file1 : file.listFiles()) {
                 for (File file2 : file1.listFiles()) {
+                    if (file2.getName().equalsIgnoreCase("pom.xml"))
+                        isDelete = false;
+                }
+                for (File file2 : file1.listFiles()) {
+                    boolean isDelete1 = true;
                     if (file2.getName().equalsIgnoreCase(".git")) {
                         BufferedReader reader = new BufferedReader(new FileReader(file2.getAbsolutePath() + "\\FETCH_HEAD"));
                         String str = reader.readLine();
                         String gitUrl = str.substring(str.indexOf("https://github.com"), str.indexOf(".git") + 4);
                         gitid = gitUrl.hashCode();
-                        System.err.println(gitUrl);
-                        System.err.println(gitid);
+
                     }
-                    if (file2.isDirectory()){
+                    if (file2.isDirectory() && !file2.getName().startsWith(".")) {
                         for (File file3 : file2.listFiles()) {
-                            boolean isDelete1 = true;
-                            if (file3.getName().equalsIgnoreCase("pom.xml")) {
+                            if (file3.getName().equalsIgnoreCase("pom.xml")){
                                 isDelete = false;
                                 isDelete1 = false;
                             }
-                        if (isDelete1)
-                            deleteAll(file3);
                         }
                     }
-                    if (file2.getName().equalsIgnoreCase("pom.xml"))
-                        isDelete = false;
+                    if (isDelete1 && isDelete && !file2.getName().startsWith(".")) {
+                        System.err.println(file2.getAbsolutePath());
+                        deleteAll(file2);
+                    }
                 }
             }
-            if (isDelete)
-                deleteAll(file);
+            if (isDelete) {
+                if (!deleteAll(file)){
+                    File newFile = new File(file.getParent() + "\\delete-"+file.getName());
+                    newFile.mkdir();
+                    Path newPath = Paths.get(newFile.getAbsolutePath());
+                    Path orderPath = Paths.get(file.getAbsolutePath());
+                    Files.move(newPath,orderPath,REPLACE_EXISTING);
+                    file.renameTo(newFile);
+                }
+            }
         }
     }
 
-    public static void deleteAll(File file) {
-        if (file.isFile() || file.list().length == 0) {
-            // 递归出口：如果file为文件或者空目录，则调用delete方法可以删除
-            file.delete();
-        } else {
-            // 非空目录不能直接删除
-            // 获取待删除目录下的所有File对象  删除里面的所有文件及目录
-            File[] files = file.listFiles();
-            for (File f : files)
-                deleteAll(f);
-            // 删除本目录
-            file.delete();
+    private boolean deleteAll(File file) throws URISyntaxException, IOException {
+        if(!file.exists()){
+            return false;
         }
+        if(file.isFile()){
+            return file.delete();
+        }
+        File[] files = file.listFiles();
+        for (File f : files) {
+            if(f.isFile()){
+                if(!f.delete())
+                    return false;
+
+            }else{
+                if(!this.deleteAll(f)){
+                    return false;
+                }
+            }
+        }
+        return file.delete();
     }
 
     @Test
