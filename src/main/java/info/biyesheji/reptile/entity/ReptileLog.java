@@ -12,7 +12,7 @@ public class ReptileLog implements Serializable {
     public static final int 不可用 = 3;
     private Integer id;
     private String url;
-    private Integer languageType;  //  1 java
+    private String languageType;  //  1 java
     private String startNum;
     private String remark;
     private Integer type;  //  1 github 2 码云
@@ -26,8 +26,8 @@ public class ReptileLog implements Serializable {
     public Integer getId() { return this.id; }
     public void setUrl(String url) { this.url = url; }
     public String getUrl() { return this.url; }
-    public void setLanguageType(Integer languageType) { this.languageType = languageType; }
-    public Integer getLanguageType() { return this.languageType; }
+    public void setLanguageType(String languageType) { this.languageType = languageType; }
+    public String getLanguageType() { return this.languageType; }
     public void setStartNum(String startNum) { this.startNum = startNum; }
     public String getStartNum() { return this.startNum; }
     public void setRemark(String remark) { this.remark = remark; }

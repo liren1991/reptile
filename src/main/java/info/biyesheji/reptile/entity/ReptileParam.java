@@ -8,6 +8,7 @@ public class ReptileParam implements Serializable {
 
     private String cookie;
     private String url;
+    private Integer moreThread;
 
 
     public String getCookie() {
@@ -26,4 +27,11 @@ public class ReptileParam implements Serializable {
         this.url = url;
     }
 
+    public Integer getMoreThread() {
+        return moreThread;
+    }
+
+    public void setMoreThread(Integer moreThread) {
+        this.moreThread = moreThread;
+    }
 }

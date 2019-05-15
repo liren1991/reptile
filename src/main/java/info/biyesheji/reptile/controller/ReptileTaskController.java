@@ -19,6 +19,7 @@ import org.jsoup.select.Elements;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.json.GsonJsonParser;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.util.StringUtils;
@@ -30,6 +31,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
+import java.util.Date;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -40,7 +42,6 @@ import static info.biyesheji.reptile.entity.ReptileLog.未处理;
 public class ReptileTaskController {
     private static final Logger logger = LoggerFactory.getLogger(ReptileTaskController.class);
     private static volatile Boolean isStop;
-    private static final int java = 1;
     private static volatile Boolean stopClone = false;
     private static volatile Boolean isStartClone = false;
 
@@ -51,8 +52,14 @@ public class ReptileTaskController {
 
     @RequestMapping("/reptileGitHubUrl.html")
     public Object reptileGitUrl(@RequestBody ReptileParam param) {
-        if (isStop != null && !isStop)
+        if (param.getMoreThread() == 1 && isStop != null && !isStop)
             return RequestUtil.error("gitHub 爬虫已启动!");
+        String url = param.getUrl();
+        if (url.indexOf("l=Java") < 0) {
+            url += "&l=Java";
+            param.setUrl(url);
+        }
+        logger.info("爬取 gitHub 网页 请求路径:  " + url);
         isStop = false;
         ReptileThread reptileThread = new ReptileThread(param, reptileLogMapper);
         new Thread(reptileThread).start();
@@ -66,7 +73,7 @@ public class ReptileTaskController {
     }
 
     @RequestMapping("/startClone.html")
-    public Object startClone(@RequestParam(value = "cloneNum" , required = false,defaultValue = "100")Integer cloneNum) {
+    public Object startClone(@RequestParam(value = "cloneNum", required = false, defaultValue = "100") Integer cloneNum) {
         List<ReptileLog> reptileLogList = reptileLogMapper.listReptileLogTask(未处理);
         StringBuilder builder = new StringBuilder();
         if (isStartClone)
@@ -79,14 +86,15 @@ public class ReptileTaskController {
                     if (stopClone) break;
                     if (count >= cloneNum) break;
 
-//                    File localPath = new File("/usr/data/gitProject" + reptileLog.getProjectName());
-                    File localPath = new File("D:\\gitProject" + reptileLog.getProjectName());
+                    File localPath = new File("/usr/data/gitProject" + reptileLog.getProjectName());
+//                    File localPath = new File("D:\\gitProject" + reptileLog.getProjectName());
                     try (Git result = Git.cloneRepository()
                             .setURI(reptileLog.getGitUrl())
                             .setDirectory(localPath)
                             .call()) {
                         logger.info("git clone 成功:  " + reptileLog.getGitUrl());
                         reptileLog.setStatus(已下载);
+                        reptileLog.setUpdateTime(new Date());
                         builder.append(reptileLog.getGitUrl() + "\n");
                         reptileLogMapper.updateReptileLogByPrimaryId(reptileLog);
                     } catch (GitAPIException e) {
@@ -102,7 +110,7 @@ public class ReptileTaskController {
                 message.setText(builder.toString());
                 javaMailSender.send(message);
             }).start();
-        }finally {
+        } finally {
             isStartClone = false;
         }
         return RequestUtil.succ();
@@ -113,6 +121,7 @@ public class ReptileTaskController {
         stopClone = true;
         return RequestUtil.succ();
     }
+
     private static final class ReptileThread implements Runnable {
         private ReptileParam param;
         private ReptileLogMapper mapper;
@@ -150,7 +159,7 @@ public class ReptileTaskController {
                         if (!StringUtils.isEmpty(urlStr)) {
                             String url = httpGet.getURI().getAuthority() + urlStr;
                             ReptileLog reptileLog = new ReptileLog();
-                            reptileLog.setLanguageType(java);
+                            reptileLog.setLanguageType(value);
                             reptileLog.setRemark(element.select("p.col-12.col-md-9.d-inline-block.text-gray.mb-2.pr-4").text());
                             reptileLog.setStartNum(element.select("a.muted-link").text());
                             reptileLog.setGitUrl("https://" + url + ".git");
@@ -159,6 +168,8 @@ public class ReptileTaskController {
                             reptileLog.setProjectName(urlStr);
                             reptileLog.setType(1);
                             reptileLog.setStatus(0);
+                            reptileLog.setCreateTime(new Date());
+
                             try {
                                 mapper.addReptileLog(reptileLog);
                             } catch (Exception e) {
@@ -185,7 +196,8 @@ public class ReptileTaskController {
                 }
                 run();
             } else {
-                isStop = true;
+                if (param.getMoreThread() == 0)
+                    isStop = true;
                 httpGet.releaseConnection();
                 logger.info("本次爬取结束:  " + initUrl);
                 logger.info("最后一次页面html:   " + body);
