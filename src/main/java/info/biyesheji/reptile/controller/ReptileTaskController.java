@@ -52,7 +52,7 @@ public class ReptileTaskController {
 
     @RequestMapping("/reptileGitHubUrl.html")
     public Object reptileGitUrl(@RequestBody ReptileParam param) {
-        if (param.getMoreThread() == 1 && isStop != null && !isStop)
+        if (param.getMoreThread() != null && param.getMoreThread() == 1 && isStop != null && !isStop)
             return RequestUtil.error("gitHub 爬虫已启动!");
         String url = param.getUrl();
         if (url.indexOf("l=Java") < 0) {
@@ -196,7 +196,7 @@ public class ReptileTaskController {
                 }
                 run();
             } else {
-                if (param.getMoreThread() == 0)
+                if (param.getMoreThread() != null && param.getMoreThread() == 0)
                     isStop = true;
                 httpGet.releaseConnection();
                 logger.info("本次爬取结束:  " + initUrl);
