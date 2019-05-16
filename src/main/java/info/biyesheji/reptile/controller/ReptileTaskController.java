@@ -19,7 +19,6 @@ import org.jsoup.select.Elements;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.json.GsonJsonParser;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.util.StringUtils;
@@ -27,14 +26,12 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
 import java.util.Date;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
-
 import static info.biyesheji.reptile.entity.ReptileLog.已下载;
 import static info.biyesheji.reptile.entity.ReptileLog.未处理;
 
@@ -75,11 +72,12 @@ public class ReptileTaskController {
     @RequestMapping("/startClone.html")
     public Object startClone(@RequestParam(value = "cloneNum", required = false, defaultValue = "100") Integer cloneNum) {
         List<ReptileLog> reptileLogList = reptileLogMapper.listReptileLogTask(未处理);
-        StringBuilder builder = new StringBuilder();
+        final StringBuilder builder = new StringBuilder();
         if (isStartClone)
             return RequestUtil.error("git clone 任务已启动 , 请等待本任务结束后启动!");
         try {
             isStartClone = true;
+            final Long batchId = System.currentTimeMillis();
             new Thread(() -> {
                 int count = 0;
                 for (ReptileLog reptileLog : reptileLogList) {
@@ -95,6 +93,7 @@ public class ReptileTaskController {
                         logger.info("git clone 成功:  " + reptileLog.getGitUrl());
                         reptileLog.setStatus(已下载);
                         reptileLog.setUpdateTime(new Date());
+                        reptileLog.setBatchId(batchId);
                         builder.append(reptileLog.getGitUrl() + "\n");
                         reptileLogMapper.updateReptileLogByPrimaryId(reptileLog);
                     } catch (GitAPIException e) {
@@ -169,7 +168,6 @@ public class ReptileTaskController {
                             reptileLog.setType(1);
                             reptileLog.setStatus(0);
                             reptileLog.setCreateTime(new Date());
-
                             try {
                                 mapper.addReptileLog(reptileLog);
                             } catch (Exception e) {

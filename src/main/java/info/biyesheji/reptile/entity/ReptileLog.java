@@ -21,6 +21,7 @@ public class ReptileLog implements Serializable {
     private String gitUrl;
     private Date createTime;
     private Date updateTime;
+    private Long batchId;
 
     public void setId(Integer id) { this.id = id; }
     public Integer getId() { return this.id; }
@@ -44,4 +45,12 @@ public class ReptileLog implements Serializable {
     public Date getCreateTime() { return this.createTime; }
     public void setUpdateTime(Date updateTime) { this.updateTime = updateTime; }
     public Date getUpdateTime() { return this.updateTime; }
+
+    public Long getBatchId() {
+        return batchId;
+    }
+
+    public void setBatchId(Long batchId) {
+        this.batchId = batchId;
+    }
 }
